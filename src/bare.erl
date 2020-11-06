@@ -15,7 +15,7 @@
 -type type() :: numeric() |
                 bool |
                 enum() |
-                string() |
+                string |
                 {data, pos_integer()} | data |
                 void |
                 {optional, type()} |

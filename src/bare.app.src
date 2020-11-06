@@ -10,5 +10,6 @@
   {modules, []},
 
   {licenses, ["Apache 2.0"]},
-  {links, [{"SourceHut", "https://sr.ht/~hauleth/BARE-Erlang"}]}
+  {links, [{"SourceHut", "https://sr.ht/~hauleth/BARE-Erlang"},
+           {"BARE", "https://baremessages.org"}]}
  ]}.
