@@ -76,13 +76,27 @@ encode_iolist(Input, {data, Size}) when byte_size(Input) =:= Size ->
 encode_iolist(Input, data) when is_binary(Input) ->
     [encode_iolist(byte_size(Input), uint), Input];
 %%% Strings
-encode_iolist(Input, string) when is_list(Input) ->
-    encode_iolist(list_to_binary(Input), data);
-encode_iolist(Input, string) when is_binary(Input) ->
-    encode_iolist(Input, data);
+encode_iolist(Input, string) ->
+    case unicode:characters_to_binary(Input) of
+        {error, _Bin, _Rest} ->
+            exit(non_unicode_string, [Input, string]);
+        {incomplete, _Bin, _Rest} ->
+            exit(invalid_unicode_string, [Input, string]);
+        Binary when is_binary(Binary) ->
+            encode_iolist(Binary, data)
+    end;
 %%% Void
 encode_iolist([], void) ->
     [];
+%%% Enums
+encode_iolist(Value, {enum, Entries}) when is_atom(Value) ->
+    Expanded = expand(Entries),
+    case keyfind(Value, Expanded) of
+        undefined ->
+            error(no_enum_value, [Value, {enum, Entries}]);
+        [_ | Id] ->
+            encode_iolist(Id, uint)
+    end;
 %% Composite types
 %%% Optional<type>
 encode_iolist(undefined, {optional, _}) -> <<0>>;
@@ -114,7 +128,10 @@ encode_iolist({Type, Input}, {union, Types}) ->
     end;
 %%% Struct
 encode_iolist(Input, {struct, Fields}) when is_list(Fields), is_map(Input) ->
-    [encode_iolist(map_get(Key, Input), Type) || {Key, Type} <- Fields].
+    [encode_iolist(map_get(Key, Input), Type) || {Key, Type} <- Fields];
+%%% Unknown type, error
+encode_iolist(Input, Type) ->
+    error(cannot_encode, [Input, Type]).
 
 %% @doc Decode `Input' for message defined by `Spec'.
 %% @end
@@ -190,6 +207,19 @@ decode(Input, data) ->
     end;
 %%% String
 decode(Input, string) -> decode(Input, data);
+%%% Enum
+decode(Input, {enum, Values}) ->
+    Expanded = expand(Values),
+    case decode(Input, uint) of
+        {ok, Id, Rest} ->
+            case valfind(Id, Expanded) of
+                [Key | _] ->
+                    {ok, Key, Rest};
+                undefined ->
+                    {error, {unknown_enum_id, {Id, Expanded}}}
+            end;
+        Error -> Error
+    end;
 %% Composite
 %%% Optional<type>
 decode(<<0, Rest/binary>>, {optional, _}) -> {ok, undefined, Rest};
@@ -233,12 +263,17 @@ decode(Input, {map, KeyType, ValueType}) ->
 decode(Input, {union, Types}) ->
     Expanded = expand(Types),
     case decode(Input, uint) of
-        {ok, Id, Rest} ->
+        {ok, Id, Rest0} ->
             case valfind(Id, Expanded) of
                 undefined ->
                     {error, {unknown_enum_type, Id, Expanded}};
                 [Type | Id] ->
-                    decode(Rest, Type)
+                    case decode(Rest0, Type) of
+                        {ok, Value, Rest} ->
+                            {ok, {Type, Value}, Rest};
+                        Error ->
+                            Error
+                    end
             end;
         Error ->
             Error
