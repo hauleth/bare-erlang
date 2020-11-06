@@ -1,0 +1,7 @@
+image: nixos/20.03
+sources:
+  - https://git.sr.ht/~hauleth/BARE-Erlang
+tasks:
+  - proper: |
+      cd BARE-Erlang
+      nix-shell --command 'rebar3 proper'
