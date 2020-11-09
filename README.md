@@ -1,6 +1,9 @@
 BARE
 =====
 
+[![builds.sr.ht status](https://builds.sr.ht/~hauleth/BARE-Erlang.svg)](https://builds.sr.ht/~hauleth/BARE-Erlang?)
+[![Hex version](https://img.shields.io/hexpm/v/bare)](https://hex.pm/packages/bare)
+
 Implementation of [BARE][] encoding in Erlang.
 
 ## Usage
